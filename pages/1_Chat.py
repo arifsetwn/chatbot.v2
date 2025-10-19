@@ -13,6 +13,7 @@ from utils.rate_limiter import RateLimiter
 from utils.question_detector import QuestionDetector, QuestionType
 from utils.code_analyzer import CodeAnalyzer
 from utils.algorithm_simulator import AlgorithmSimulator
+from utils.analytics import get_analytics
 from dotenv import load_dotenv
 
 st.set_page_config(
@@ -551,19 +552,40 @@ Mari belajar bersama! 🎓
                 # Get conversation history for context (last 10 messages for better context)
                 conversation_history = []
                 max_context_messages = 10  # Increased from 5 to 10 for better learning experience
-                for msg in st.session_state.messages[-max_context_messages-1:-1]:  # Exclude current prompt
+                
+                # Get the last N messages (including current user prompt)
+                # If we have more than max_context messages, take the last N
+                # Otherwise, take all available messages
+                total_messages = len(st.session_state.messages)
+                if total_messages <= max_context_messages:
+                    # Take all messages
+                    context_messages = st.session_state.messages[:]
+                else:
+                    # Take last N messages
+                    context_messages = st.session_state.messages[-max_context_messages:]
+                
+                # Build conversation history for LLM
+                for msg in context_messages:
                     conversation_history.append({
                         "role": msg["role"],
                         "content": msg["content"]
                     })
+
                 
                 # Generate response with enhanced prompt
+                start_time = time.time()
                 result = llm_manager.generate_response(
                     prompt=prompt,
                     system_prompt=enhanced_system_prompt,
                     temperature=0.7,
                     conversation_history=conversation_history
                 )
+                response_time = time.time() - start_time
+                
+                # Log analytics
+                analytics = get_analytics()
+                user_id = st.session_state.get("name", f"session_{id(st.session_state)}")
+                analytics.log_chat(user_id, response_time, success=not result["error"])
                 
                 if result["error"]:
                     # Show user-friendly error message based on error type

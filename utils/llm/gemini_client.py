@@ -63,7 +63,8 @@ class GeminiClient:
         prompt: str, 
         system_prompt: Optional[str] = None,
         temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None
+        max_tokens: Optional[int] = None,
+        conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """
         Generate response from Gemini
@@ -73,6 +74,7 @@ class GeminiClient:
             system_prompt: System instruction for the model
             temperature: Override default temperature
             max_tokens: Override default max tokens
+            conversation_history: List of previous messages for context
             
         Returns:
             Dict with 'response' (str), 'model' (str), 'error' (bool), 'error_message' (str)
@@ -85,10 +87,27 @@ class GeminiClient:
             if max_tokens is not None:
                 gen_config["max_output_tokens"] = max_tokens
             
-            # Combine system prompt with user prompt if provided
-            full_prompt = prompt
+            # Build full prompt with conversation history
+            full_prompt = ""
+            
+            # Add system prompt at the beginning
             if system_prompt:
-                full_prompt = f"{system_prompt}\n\n{prompt}"
+                full_prompt = f"{system_prompt}\n\n"
+            
+            # Add conversation history for context
+            if conversation_history:
+                full_prompt += "=== CONVERSATION HISTORY ===\n"
+                for msg in conversation_history:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    if role == "user":
+                        full_prompt += f"User: {content}\n"
+                    elif role == "assistant":
+                        full_prompt += f"Assistant: {content}\n"
+                full_prompt += "=== END OF HISTORY ===\n\n"
+            
+            # Add current prompt
+            full_prompt += f"User: {prompt}\nAssistant:"
             
             # Generate content
             response = self.model.generate_content(

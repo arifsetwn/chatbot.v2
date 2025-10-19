@@ -116,7 +116,8 @@ class LLMManager:
                     prompt=prompt,
                     system_prompt=system_prompt,
                     temperature=temperature,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
+                    conversation_history=conversation_history  # Now Gemini also gets history!
                 )
             
             # If successful, return
@@ -149,7 +150,8 @@ class LLMManager:
                     prompt=prompt,
                     system_prompt=system_prompt,
                     temperature=temperature,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
+                    conversation_history=conversation_history  # Fallback also gets history!
                 )
             
             result["provider"] = self.fallback_provider.value

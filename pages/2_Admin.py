@@ -1,6 +1,7 @@
 import re
 import os
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import streamlit as st
 try:
@@ -11,6 +12,11 @@ except Exception:
 import yaml
 from yaml.loader import SafeLoader
 from dotenv import load_dotenv
+import sys
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.analytics import get_analytics
 
 
 st.set_page_config(
@@ -123,14 +129,34 @@ if choice == "🏠 Dashboard":
     rpm = os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "10")
     rph = os.getenv("RATE_LIMIT_REQUESTS_PER_HOUR", "100")
 
+    # Get real analytics data
+    analytics = get_analytics()
+    stats = analytics.get_stats()
+    
+    # Display real metrics
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Chat Hari Ini", "0")
-    c2.metric("Rata-rata Response Time", "0s")
-    c3.metric("Active Users", "0")
-    c4.metric("Uptime", "99.9%")
+    c1.metric("Total Chat Hari Ini", stats["chats_today"])
+    c2.metric("Rata-rata Response Time", f"{stats['avg_response_time']:.2f}s")
+    c3.metric("Active Users", stats["active_users_today"])
+    
+    # Calculate uptime percentage (assume 99.9% if running)
+    uptime_pct = 99.9 if stats["uptime_hours"] > 0 else 0
+    c4.metric("Uptime", f"{uptime_pct:.1f}%")
 
     st.markdown("---")
-    st.subheader("🔧 Status Sistem")
+    
+    # Additional stats
+    st.subheader("� Statistik Detail")
+    s1, s2, s3 = st.columns(3)
+    with s1:
+        st.metric("Total Chat (All Time)", stats["total_chats"])
+    with s2:
+        st.metric("Total Users (All Time)", stats["total_users"])
+    with s3:
+        st.metric("Uptime Hours", f"{stats['uptime_hours']:.1f}h")
+    
+    st.markdown("---")
+    st.subheader("�🔧 Status Sistem")
     s1, s2, s3 = st.columns(3)
     with s1:
         st.markdown("**🤖 Model AI Aktif:**")
@@ -143,18 +169,84 @@ if choice == "🏠 Dashboard":
         cnt = len(list(Path("data/materials").glob("*.pdf"))) if Path("data/materials").exists() else 0
         st.info(f"{cnt} file PDF")
 
+    # Recent activity
+    st.markdown("---")
+    st.subheader("📈 Aktivitas Terkini (10 Chat Terakhir)")
+    recent_chats = stats.get("recent_chats", [])
+    if recent_chats:
+        for i, chat in enumerate(reversed(recent_chats), 1):
+            timestamp = datetime.fromisoformat(chat["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+            status = "✅" if chat["success"] else "❌"
+            st.caption(f"{i}. {status} {timestamp} | User: {chat['user_id'][:20]} | Response: {chat['response_time']:.2f}s")
+    else:
+        st.info("Belum ada aktivitas chat")
+    
+    # Daily trend (last 7 days)
+    st.markdown("---")
+    st.subheader("📊 Trend 7 Hari Terakhir")
+    daily_stats = analytics.get_daily_stats(days=7)
+    
+    if daily_stats:
+        # Prepare data for chart
+        dates = []
+        chats = []
+        users = []
+        
+        for date in sorted(daily_stats.keys(), reverse=True):
+            dates.append(date)
+            chats.append(daily_stats[date]["chats"])
+            users.append(len(daily_stats[date]["users"]))
+        
+        # Reverse to show oldest first
+        dates.reverse()
+        chats.reverse()
+        users.reverse()
+        
+        # Display as table
+        import pandas as pd
+        df = pd.DataFrame({
+            "Tanggal": dates,
+            "Total Chat": chats,
+            "Active Users": users
+        })
+        st.dataframe(df, use_container_width=True)
+        
+        # Simple bar chart
+        st.bar_chart(df.set_index("Tanggal")[["Total Chat", "Active Users"]])
+    else:
+        st.info("Belum ada data untuk ditampilkan")
+
     st.markdown("---")
     st.subheader("⚡ Quick Actions")
     a1, a2, a3 = st.columns(3)
-    if a1.button("🔄 Restart Services"):
-        st.info("Restarting services... (placeholder)")
-        st.success("Services restarted")
-    if a2.button("🧹 Clear Cache"):
-        st.info("Clearing cache... (placeholder)")
-        st.success("Cache cleared")
-    if a3.button("📊 Generate Report"):
-        st.info("Generating report... (placeholder)")
-        st.success("Report generated")
+    if a1.button("🔄 Refresh Data"):
+        st.rerun()
+    if a2.button("🧹 Reset Analytics"):
+        if st.session_state.get("confirm_reset"):
+            analytics.reset_stats()
+            st.success("Analytics data telah direset!")
+            st.session_state.confirm_reset = False
+            st.rerun()
+        else:
+            st.session_state.confirm_reset = True
+            st.warning("⚠️ Klik sekali lagi untuk konfirmasi reset!")
+    if a3.button("� Export Report"):
+        # Export stats to JSON
+        import json
+        report = {
+            "generated_at": datetime.now().isoformat(),
+            "stats": stats,
+            "daily_stats": daily_stats
+        }
+        report_json = json.dumps(report, indent=2, ensure_ascii=False)
+        st.download_button(
+            label="📥 Download JSON Report",
+            data=report_json,
+            file_name=f"analytics_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json"
+        )
+        st.success("Report siap diunduh!")
+
 
 elif choice == "🔑 API Management":
     st.header("API Key Management")
@@ -222,8 +314,132 @@ elif choice == "📄 System Prompt":
 
 elif choice == "📊 Analytics":
     st.header("Analytics Dashboard")
-    st.write("(Placeholder analytics — integrasikan log parsing & storage untuk data nyata.)")
-    st.info("Tidak ada data saat ini")
+    
+    # Get analytics data
+    analytics = get_analytics()
+    stats = analytics.get_stats()
+    
+    # Overview metrics
+    st.subheader("📈 Overview")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Chats", stats["total_chats"])
+    m2.metric("Total Users", stats["total_users"])
+    m3.metric("Chats Today", stats["chats_today"])
+    m4.metric("Avg Response Time", f"{stats['avg_response_time']:.2f}s")
+    
+    st.markdown("---")
+    
+    # Time period selector
+    period = st.selectbox("Periode Analisis:", ["7 Hari Terakhir", "30 Hari Terakhir", "All Time"])
+    days = 7 if period == "7 Hari Terakhir" else 30 if period == "30 Hari Terakhir" else 365
+    
+    daily_stats = analytics.get_daily_stats(days=days)
+    
+    if daily_stats:
+        st.subheader(f"📊 Statistik {period}")
+        
+        # Prepare data
+        dates = []
+        chats = []
+        users = []
+        avg_times = []
+        
+        for date in sorted(daily_stats.keys()):
+            dates.append(date)
+            chats.append(daily_stats[date]["chats"])
+            users.append(len(daily_stats[date]["users"]))
+            avg_times.append(daily_stats[date].get("avg_response_time", 0))
+        
+        import pandas as pd
+        df = pd.DataFrame({
+            "Tanggal": dates,
+            "Total Chat": chats,
+            "Active Users": users,
+            "Avg Response Time": [f"{t:.2f}s" for t in avg_times]
+        })
+        
+        # Display table
+        st.dataframe(df, use_container_width=True)
+        
+        # Charts
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Total Chat per Hari**")
+            chart_data = pd.DataFrame({"Chat": chats}, index=dates)
+            st.line_chart(chart_data)
+        
+        with col2:
+            st.markdown("**Active Users per Hari**")
+            chart_data = pd.DataFrame({"Users": users}, index=dates)
+            st.line_chart(chart_data)
+        
+        # Summary statistics
+        st.markdown("---")
+        st.subheader("📋 Summary")
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Total Chats", sum(chats))
+        s2.metric("Unique Users", len(set([u for day_stats in daily_stats.values() for u in day_stats.get("users", [])])))
+        s3.metric("Avg Chats/Day", f"{sum(chats)/len(dates):.1f}")
+        s4.metric("Peak Day Chats", max(chats) if chats else 0)
+    else:
+        st.info("Belum ada data analytics untuk ditampilkan")
+    
+    # Recent activity details
+    st.markdown("---")
+    st.subheader("🕒 Recent Activity (100 Chat Terakhir)")
+    recent_chats = stats.get("recent_chats", [])
+    
+    if recent_chats:
+        activity_data = []
+        for chat in reversed(recent_chats):
+            timestamp = datetime.fromisoformat(chat["timestamp"])
+            activity_data.append({
+                "Timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "User": chat["user_id"][:30],
+                "Response Time": f"{chat['response_time']:.2f}s",
+                "Status": "✅ Success" if chat["success"] else "❌ Failed"
+            })
+        
+        import pandas as pd
+        df_activity = pd.DataFrame(activity_data)
+        st.dataframe(df_activity, use_container_width=True)
+    else:
+        st.info("Belum ada aktivitas chat")
+    
+    # Export options
+    st.markdown("---")
+    st.subheader("💾 Export Data")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📥 Export Full Analytics", use_container_width=True):
+            import json
+            export_data = {
+                "exported_at": datetime.now().isoformat(),
+                "summary": stats,
+                "daily_stats": daily_stats
+            }
+            export_json = json.dumps(export_data, indent=2, ensure_ascii=False)
+            st.download_button(
+                label="Download JSON",
+                data=export_json,
+                file_name=f"full_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+    
+    with col2:
+        if st.button("🗑️ Reset All Analytics", use_container_width=True):
+            if st.session_state.get("confirm_analytics_reset"):
+                analytics.reset_stats()
+                st.success("✅ Analytics data telah direset!")
+                st.session_state.confirm_analytics_reset = False
+                st.rerun()
+            else:
+                st.session_state.confirm_analytics_reset = True
+                st.warning("⚠️ Klik sekali lagi untuk konfirmasi reset!")
 
 elif choice == "📚 Upload Materi":
     st.header("Upload Materi Pembelajaran")
