@@ -508,7 +508,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Email:** [your-email@example.com]
 - **GitHub Issues:** [Create an issue](https://github.com/arifsetwn/chatbot.v2/issues)
 - **Demo:** [https://chatbotv2-jeu2cve8kghtl949f593rl.streamlit.app/](https://chatbotv2-jeu2cve8kghtl949f593rl.streamlit.app/)
 
@@ -521,62 +520,7 @@ Jika project ini membantu, berikan ⭐ di GitHub!
 **Made with ❤️ for students learning algorithms**
 
 **Last Updated:** 19 Oktober 2025
-# Install development dependencies
-pip install -r requirements-dev.txt
 
-# Run tests
-pytest
-
-# Format code
-black .
-
-# Lint code
-flake8 .
-```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `GOOGLE_API_KEY` | Google Gemini API Key | - |
-| `OPENAI_API_KEY` | OpenAI API Key | - |
-| `DEFAULT_MODEL` | Model AI default | gemini |
-| `RATE_LIMIT_REQUESTS_PER_MINUTE` | Batas request per menit | 10 |
-| `MAX_FILE_SIZE_MB` | Ukuran maksimal file upload | 1 |
-
-## 📊 Monitoring
-
-Aplikasi menyediakan:
-- Log aktivitas chat
-- Statistik penggunaan
-- Response time monitoring
-- Error tracking
-
-## 🔒 Keamanan
-
-- Tidak menyimpan data personal mahasiswa
-- API keys dienkripsi
-- Rate limiting untuk mencegah abuse
-- Input validation untuk file upload
-- Local storage untuk riwayat percakapan
-
-## 🤝 Contributing
-
-1. Fork repository
-2. Buat branch fitur (`git checkout -b feature/AmazingFeature`)
-3. Commit perubahan (`git commit -m 'Add some AmazingFeature'`)
-4. Push ke branch (`git push origin feature/AmazingFeature`)
-5. Buat Pull Request
-
-## 📝 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## 📞 Support
-
-Untuk pertanyaan atau dukungan:
-- Buat issue di repository
-- Hubungi tim pengembang PTI UMS
 
 ---
 
