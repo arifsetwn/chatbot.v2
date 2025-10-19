@@ -45,6 +45,7 @@ logs/
 # Data files (uncomment data/ if you want to keep data in repo)
 # data/
 uploads/
+chat_history/
 *.db
 *.sqlite
 *.sqlite3

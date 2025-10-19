@@ -167,82 +167,40 @@ system_prompt = load_system_prompt()
 # Load chat history from localStorage (simulated via session state)
 def load_chat_history():
     """Load chat history from browser localStorage"""
-    try:
-        # In a real implementation, this would use JavaScript to access localStorage
-        # For now, we'll use Streamlit's session state as a placeholder
-        if "saved_chat_history" in st.session_state:
-            st.session_state.messages = st.session_state.saved_chat_history
-    except:
-        pass
+    # Use session state to persist during the session
+    # In a real implementation, this could use JavaScript + localStorage
+    pass
 
 def save_chat_history():
-    """Save chat history to browser localStorage"""
+    """Save chat history to a JSON file"""
     try:
-        # In a real implementation, this would use JavaScript to save to localStorage
-        # For now, we'll use Streamlit's session state as a placeholder
-        st.session_state.saved_chat_history = st.session_state.messages.copy()
-    except:
-        pass
+        import json
+        from datetime import datetime
+        
+        # Create a history directory if it doesn't exist
+        history_dir = Path("chat_history")
+        history_dir.mkdir(exist_ok=True)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = history_dir / f"chat_{timestamp}.json"
+        
+        # Save messages to JSON file
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(st.session_state.messages, f, ensure_ascii=False, indent=2)
+        
+        return filename
+    except Exception as e:
+        raise Exception(f"Error saving chat history: {str(e)}")
 
 # Load history on startup
 load_chat_history()
 
-# Sidebar for topics
-st.sidebar.title("📚 Topik Algoritma")
+# ============================================
+# SIDEBAR - Organized Structure
+# ============================================
 
-# Topic categories
-topic_categories = {
-    "🔍 Pencarian (Searching)": [
-        "Linear Search",
-        "Binary Search",
-        "Hash Table Search"
-    ],
-    "🔀 Pengurutan (Sorting)": [
-        "Bubble Sort",
-        "Selection Sort",
-        "Insertion Sort",
-        "Quick Sort",
-        "Merge Sort"
-    ],
-    "🔄 Rekursi (Recursion)": [
-        "Konsep Dasar Rekursi",
-        "Factorial dengan Rekursi",
-        "Fibonacci dengan Rekursi",
-        "Tower of Hanoi"
-    ],
-    "📊 Struktur Data (Data Structures)": [
-        "Array dan List",
-        "Stack dan Queue",
-        "Linked List",
-        "Tree dan Binary Tree",
-        "Graph"
-    ],
-    "⚡ Pemrograman Dinamis (Dynamic Programming)": [
-        "Knapsack Problem",
-        "Longest Common Subsequence",
-        "Matrix Chain Multiplication"
-    ],
-    "🗂️ Divide and Conquer": [
-        "Merge Sort (Divide & Conquer)",
-        "Quick Sort (Divide & Conquer)",
-        "Binary Search (Divide & Conquer)"
-    ]
-}
-
-# Display topics in expandable sections
-selected_topic = None
-for category, topics in topic_categories.items():
-    with st.sidebar.expander(category):
-        for topic in topics:
-            if st.button(topic, key=f"topic_{topic}", use_container_width=True):
-                selected_topic = topic
-                st.sidebar.success(f"📖 Topik dipilih: {topic}")
-
-# Show selected topic
-if selected_topic:
-    st.sidebar.markdown(f"**Topik Aktif:** {selected_topic}")
-
-st.sidebar.markdown("---")
+# 1. UPLOAD KODE
 st.sidebar.markdown("### 📤 Upload Kode")
 uploaded_file = st.sidebar.file_uploader(
     "Upload file Python (.py atau .txt)",
@@ -313,7 +271,7 @@ elif st.session_state.uploaded_code:
         st.session_state.code_analysis = None
         st.rerun()
 
-# Algorithm Simulator Widget
+# 2. ALGORITHM SIMULATOR
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔬 Algorithm Simulator")
 
@@ -394,6 +352,32 @@ if algorithm_choice != "(Pilih algoritma)":
                     st.sidebar.error(f"❌ {result.get('error', 'Simulasi gagal')}")
             except Exception as e:
                 st.sidebar.error(f"Error: {str(e)}")
+
+# 3. PERCAKAPAN
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💬 Percakapan")
+
+# Show conversation stats
+message_count = len(st.session_state.messages)
+if message_count > 0:
+    st.sidebar.caption(f"📊 {message_count} pesan dalam sesi ini")
+    
+    # Context info
+    max_context = 10
+    context_count = min(message_count, max_context)
+    st.sidebar.caption(f"🧠 Mengingat {context_count} pesan terakhir")
+
+# Clear conversation button
+if st.sidebar.button("🗑️ Hapus Riwayat Chat", use_container_width=True):
+    st.session_state.messages = []
+    st.session_state.uploaded_code = None
+    st.session_state.code_analysis = None
+    st.sidebar.success("✅ Riwayat percakapan dihapus!")
+    st.rerun()
+
+# ============================================
+# MAIN AREA
+# ============================================
 
 # Initialize simulation result in session state
 if 'simulation_result' not in st.session_state:
@@ -564,9 +548,10 @@ Mari belajar bersama! 🎓
                     st.session_state.messages.append({"role": "assistant", "content": full_response})
                     st.stop()
                 
-                # Get conversation history for context (last 5 messages)
+                # Get conversation history for context (last 10 messages for better context)
                 conversation_history = []
-                for msg in st.session_state.messages[-6:-1]:  # Exclude current prompt
+                max_context_messages = 10  # Increased from 5 to 10 for better learning experience
+                for msg in st.session_state.messages[-max_context_messages-1:-1]:  # Exclude current prompt
                     conversation_history.append({
                         "role": msg["role"],
                         "content": msg["content"]
@@ -639,18 +624,30 @@ if uploaded_file is not None:
 st.markdown("---")
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("💾 Simpan Riwayat"):
-        save_chat_history()
-        st.success("✅ Riwayat percakapan disimpan di browser Anda!")
+    if st.button("💾 Simpan Riwayat", use_container_width=True):
+        if len(st.session_state.messages) > 0:
+            try:
+                filename = save_chat_history()
+                st.success(f"✅ Riwayat percakapan disimpan!\n\nFile: `{filename.name}`")
+            except Exception as e:
+                st.error(f"❌ Gagal menyimpan: {str(e)}")
+        else:
+            st.warning("⚠️ Tidak ada percakapan untuk disimpan!")
 
 with col2:
-    if st.button("🗑️ Hapus Riwayat"):
-        st.session_state.messages = []
-        st.session_state.chat_history = []
-        # Also clear saved history
-        if "saved_chat_history" in st.session_state:
-            del st.session_state.saved_chat_history
-        st.rerun()
+    if st.button("🗑️ Hapus Riwayat", use_container_width=True):
+        if len(st.session_state.messages) > 0:
+            st.session_state.messages = []
+            if "uploaded_code" in st.session_state:
+                st.session_state.uploaded_code = None
+            if "code_analysis" in st.session_state:
+                st.session_state.code_analysis = None
+            if "simulation_result" in st.session_state:
+                st.session_state.simulation_result = None
+            st.success("✅ Riwayat percakapan dihapus!")
+            st.rerun()
+        else:
+            st.info("ℹ️ Riwayat sudah kosong!")
 
 # Footer
 st.markdown("---")
