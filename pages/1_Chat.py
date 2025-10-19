@@ -14,6 +14,7 @@ from utils.question_detector import QuestionDetector, QuestionType
 from utils.code_analyzer import CodeAnalyzer
 from utils.algorithm_simulator import AlgorithmSimulator
 from utils.analytics import get_analytics
+from utils.material_reader import get_material_reader
 from dotenv import load_dotenv
 
 st.set_page_config(
@@ -132,6 +133,11 @@ def init_algorithm_simulator():
     """Initialize Algorithm Simulator"""
     return AlgorithmSimulator()
 
+@st.cache_resource
+def init_material_reader():
+    """Initialize Material Reader"""
+    return get_material_reader()
+
 # Load system prompt
 def load_system_prompt():
     """Load system prompt from file"""
@@ -163,6 +169,7 @@ rate_limiter = init_rate_limiter()
 question_detector = init_question_detector()
 code_analyzer = init_code_analyzer()
 algorithm_simulator = init_algorithm_simulator()
+material_reader = init_material_reader()
 system_prompt = load_system_prompt()
 
 # Load chat history from localStorage (simulated via session state)
@@ -500,6 +507,12 @@ if prompt := st.chat_input("Tanyakan tentang algoritma..."):
                 
                 # BUILD ENHANCED PROMPT
                 enhanced_system_prompt = system_prompt
+                
+                # Add learning materials if available
+                materials_text = material_reader.get_all_materials_text(max_chars=5000)
+                if materials_text:
+                    enhanced_system_prompt += f"\n\n{materials_text}"
+                    enhanced_system_prompt += "PENTING: Gunakan materi di atas sebagai referensi utama saat menjawab pertanyaan. Jika ada informasi relevan di materi, sebutkan dan gunakan sebagai acuan.\n\n"
                 
                 # Add response strategy guidance
                 enhanced_system_prompt += f"\n\n---\nSTRATEGI RESPONS:\n{response_strategy['guidance']}\n"
