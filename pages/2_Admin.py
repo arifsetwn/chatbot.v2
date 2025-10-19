@@ -120,6 +120,7 @@ MENU = [
     "📄 System Prompt",
     "📊 Analytics",
     "📚 Upload Materi",
+    "🎓 Moodle Integration",
 ]
 choice = st.sidebar.selectbox("Pilih menu:", MENU)
 
@@ -581,6 +582,286 @@ elif choice == "📚 Upload Materi":
         4. **Isi**: Materi pembelajaran algoritma dan pemrograman
 
         **File akan disimpan di:** `data/materials/`
+        """)
+
+elif choice == "🎓 Moodle Integration":
+    st.header("Integrasi Moodle LMS")
+    
+    # Configuration Section
+    st.subheader("⚙️ Konfigurasi Moodle")
+    
+    current_moodle_url = os.getenv("MOODLE_URL", "")
+    current_moodle_token = os.getenv("MOODLE_TOKEN", "")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        moodle_url = st.text_input(
+            "Moodle URL",
+            value=current_moodle_url,
+            placeholder="https://moodle.ums.ac.id",
+            help="Base URL Moodle instance (tanpa trailing slash)"
+        )
+    
+    with col2:
+        moodle_token = st.text_input(
+            "Web Service Token",
+            value=current_moodle_token,
+            type="password",
+            help="Token dari Moodle Web Services"
+        )
+    
+    # Action buttons
+    col1, col2, col3 = st.columns(3)
+    
+    if col1.button("🧪 Test Connection", use_container_width=True):
+        if not moodle_url or not moodle_token:
+            st.error("❌ Masukkan URL dan Token terlebih dahulu")
+        else:
+            try:
+                from utils.moodle_client import MoodleClient
+                
+                with st.spinner("Testing Moodle connection..."):
+                    client = MoodleClient(moodle_url, moodle_token)
+                    
+                    if client.validate_connection():
+                        info = client.get_site_info()
+                        st.success("✅ Koneksi ke Moodle berhasil!")
+                        
+                        # Show site info
+                        st.info(f"**Site:** {info['sitename']}\n\n"
+                               f"**Version:** {info['version']}\n\n"
+                               f"**User:** {info['fullname']} ({info['username']})")
+                    else:
+                        st.error("❌ Koneksi gagal. Periksa URL dan token.")
+                        
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+    
+    if col2.button("💾 Simpan Konfigurasi", use_container_width=True):
+        try:
+            write_env({
+                "MOODLE_URL": moodle_url,
+                "MOODLE_TOKEN": moodle_token
+            })
+            st.success("✅ Konfigurasi Moodle disimpan!")
+            st.info("ℹ️ Restart aplikasi untuk menerapkan perubahan")
+        except Exception as e:
+            st.error(f"❌ Error menyimpan konfigurasi: {str(e)}")
+    
+    if col3.button("🔄 Reload Config", use_container_width=True):
+        st.rerun()
+    
+    # Only show features if connected
+    if current_moodle_url and current_moodle_token:
+        st.markdown("---")
+        st.subheader("📊 Moodle Data Explorer")
+        
+        try:
+            from utils.moodle_client import MoodleClient
+            client = MoodleClient()
+            
+            # Tabs for different features
+            tab1, tab2, tab3, tab4 = st.tabs([
+                "👤 User Lookup",
+                "📚 Courses",
+                "📝 Assignments",
+                "📈 Student Dashboard"
+            ])
+            
+            with tab1:
+                st.markdown("#### Search User")
+                
+                search_field = st.selectbox("Search by:", ["username", "email", "id"])
+                search_value = st.text_input(f"Enter {search_field}:")
+                
+                if st.button("🔍 Search User", key="search_user"):
+                    if search_value:
+                        try:
+                            users = client.get_user_by_field(search_field, [search_value])
+                            
+                            if users:
+                                st.success(f"✅ Found {len(users)} user(s)")
+                                for user in users:
+                                    with st.expander(f"👤 {user['fullname']} (@{user['username']})"):
+                                        st.json({
+                                            "ID": user['id'],
+                                            "Username": user['username'],
+                                            "Full Name": user['fullname'],
+                                            "Email": user['email'],
+                                            "First Access": datetime.fromtimestamp(user.get('firstaccess', 0)).strftime("%Y-%m-%d") if user.get('firstaccess') else "Never"
+                                        })
+                            else:
+                                st.warning("⚠️ User tidak ditemukan")
+                        except Exception as e:
+                            st.error(f"❌ Error: {str(e)}")
+            
+            with tab2:
+                st.markdown("#### All Courses")
+                
+                if st.button("📚 Load Courses", key="load_courses"):
+                    try:
+                        with st.spinner("Loading courses..."):
+                            courses = client.get_all_courses()
+                            
+                            if courses:
+                                st.success(f"✅ Found {len(courses)} course(s)")
+                                
+                                # Display as table
+                                import pandas as pd
+                                df = pd.DataFrame([{
+                                    "ID": c['id'],
+                                    "Name": c['fullname'],
+                                    "Short Name": c['shortname'],
+                                    "Category": c.get('categoryid', 'N/A')
+                                } for c in courses[:50]])  # Limit to 50 for performance
+                                
+                                st.dataframe(df, use_container_width=True)
+                                
+                                if len(courses) > 50:
+                                    st.info(f"ℹ️ Showing first 50 of {len(courses)} courses")
+                            else:
+                                st.warning("⚠️ No courses found")
+                                
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+            
+            with tab3:
+                st.markdown("#### Assignments")
+                
+                course_id_input = st.number_input("Course ID:", min_value=1, step=1)
+                
+                if st.button("📝 Load Assignments", key="load_assignments"):
+                    try:
+                        with st.spinner("Loading assignments..."):
+                            result = client.get_assignments([course_id_input])
+                            courses_data = result.get('courses', [])
+                            
+                            if courses_data:
+                                for course_data in courses_data:
+                                    assignments = course_data.get('assignments', [])
+                                    
+                                    if assignments:
+                                        st.success(f"✅ Found {len(assignments)} assignment(s)")
+                                        
+                                        for assign in assignments:
+                                            with st.expander(f"📝 {assign['name']}"):
+                                                due = assign.get('duedate', 0)
+                                                due_str = datetime.fromtimestamp(due).strftime("%Y-%m-%d %H:%M") if due else "No deadline"
+                                                
+                                                st.markdown(f"**Due:** {due_str}")
+                                                st.markdown(f"**ID:** {assign['id']}")
+                                                st.markdown(f"**Intro:** {assign.get('intro', 'N/A')[:200]}...")
+                                    else:
+                                        st.info("ℹ️ No assignments in this course")
+                            else:
+                                st.warning("⚠️ Course not found or no assignments")
+                                
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+            
+            with tab4:
+                st.markdown("#### Student Dashboard")
+                
+                username_input = st.text_input("Student Username:")
+                
+                if st.button("📊 Load Dashboard", key="load_dashboard"):
+                    if username_input:
+                        try:
+                            with st.spinner("Loading student dashboard..."):
+                                dashboard = client.get_student_dashboard(username_input)
+                                
+                                # User info
+                                st.markdown(f"### 👤 {dashboard['user']['fullname']}")
+                                st.caption(f"Username: {dashboard['user']['username']} | Email: {dashboard['user']['email']}")
+                                
+                                st.markdown("---")
+                                
+                                # Courses
+                                st.markdown("#### 📚 Enrolled Courses")
+                                if dashboard['courses']:
+                                    for course in dashboard['courses']:
+                                        with st.expander(f"{course['fullname']} ({course['shortname']})"):
+                                            st.markdown(f"**Course ID:** {course['id']}")
+                                            st.markdown(f"**Progress:** {course.get('progress', 0)}%")
+                                            
+                                            if course['grades']:
+                                                st.markdown("**Grades:**")
+                                                for grade_info in course['grades']:
+                                                    for grade in grade_info.get('gradeitems', []):
+                                                        st.caption(f"• {grade.get('itemname', 'N/A')}: {grade.get('gradeformatted', 'N/A')}")
+                                else:
+                                    st.info("No courses found")
+                                
+                                st.markdown("---")
+                                
+                                # Upcoming assignments
+                                st.markdown("#### 📝 Upcoming Assignments")
+                                if dashboard['upcoming_assignments']:
+                                    for assign in dashboard['upcoming_assignments'][:10]:
+                                        st.markdown(f"**{assign['name']}**")
+                                        st.caption(f"Due: {assign['duedate']}")
+                                        st.caption(f"{assign['intro'][:100]}...")
+                                        st.markdown("---")
+                                else:
+                                    st.info("No upcoming assignments")
+                                    
+                        except Exception as e:
+                            st.error(f"❌ Error: {str(e)}")
+                    else:
+                        st.warning("⚠️ Enter username")
+        
+        except ImportError:
+            st.error("❌ Moodle client not available. Check installation.")
+        except Exception as e:
+            st.error(f"❌ Error initializing Moodle client: {str(e)}")
+    
+    else:
+        st.info("ℹ️ Masukkan URL dan Token Moodle untuk mengakses fitur integrasi")
+    
+    # Documentation
+    with st.expander("📖 Setup Guide"):
+        st.markdown("""
+        ### Cara Setup Moodle Web Services
+        
+        **1. Enable Web Services (Admin):**
+        - Site Administration > Advanced Features
+        - Enable "Enable web services"
+        
+        **2. Enable REST Protocol:**
+        - Site Administration > Plugins > Web Services > Manage Protocols
+        - Enable REST protocol
+        
+        **3. Create External Service:**
+        - Site Administration > Plugins > Web Services > External Services
+        - Add new service: "Chatbot Service"
+        - Add required functions:
+          - `core_webservice_get_site_info`
+          - `core_user_get_users`
+          - `core_enrol_get_users_courses`
+          - `core_course_get_contents`
+          - `mod_assign_get_assignments`
+          - `gradereport_user_get_grade_items`
+        
+        **4. Create Token:**
+        - Site Administration > Plugins > Web Services > Manage Tokens
+        - Add token for your user
+        - Copy token and paste above
+        
+        **5. Test Connection:**
+        - Enter Moodle URL and token
+        - Click "Test Connection"
+        - If successful, save configuration
+        
+        ### Integration Features
+        
+        - ✅ User authentication and lookup
+        - ✅ Course enrollment tracking
+        - ✅ Assignment listing and submission
+        - ✅ Grade tracking and reporting
+        - ✅ Student dashboard view
+        - 🔄 Forum integration (coming soon)
+        - 🔄 Quiz integration (coming soon)
         """)
 
 # Logout button - v0.4.2 renders the button automatically

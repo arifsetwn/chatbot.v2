@@ -71,7 +71,7 @@
 - [ ] Developer documentation
 
 ## Future Enhancements (Fase 2)
-- [ ] Integrasi dengan LMS (Moodle API)
+- [x] Integrasi dengan LMS (Moodle API)
 - [ ] Visualisasi algoritma interaktif (flowchart/trace table)
 - [ ] Penilaian otomatis kode mahasiswa
 - [ ] Leaderboard dan gamifikasi
