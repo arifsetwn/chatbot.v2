@@ -3,6 +3,9 @@
 .env.local
 .env.production
 
+# Streamlit secrets (IMPORTANT: Don't commit secrets!)
+.streamlit/secrets.toml
+
 # Python
 __pycache__/
 *.py[cod]
@@ -25,9 +28,6 @@ wheels/
 .installed.cfg
 *.egg
 
-# Streamlit
-.streamlit/
-
 # IDE
 .vscode/
 .idea/
@@ -42,12 +42,17 @@ Thumbs.db
 logs/
 *.log
 
-# Data files
-data/
+# Data files (uncomment data/ if you want to keep data in repo)
+# data/
 uploads/
 *.db
 *.sqlite
 *.sqlite3
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
 
 # Temporary files
 *.tmp
