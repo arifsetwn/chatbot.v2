@@ -220,17 +220,32 @@ if choice == "🏠 Dashboard":
     st.subheader("⚡ Quick Actions")
     a1, a2, a3 = st.columns(3)
     if a1.button("🔄 Refresh Data"):
+        # Clear any pending confirmations
+        if "confirm_reset" in st.session_state:
+            del st.session_state.confirm_reset
         st.rerun()
     if a2.button("🧹 Reset Analytics"):
-        if st.session_state.get("confirm_reset"):
-            analytics.reset_stats()
-            st.success("Analytics data telah direset!")
-            st.session_state.confirm_reset = False
-            st.rerun()
+        if st.session_state.get("confirm_reset") and st.session_state.get("confirm_reset_time"):
+            # Check if confirmation is still valid (within 10 seconds)
+            from datetime import datetime
+            elapsed = (datetime.now() - st.session_state.confirm_reset_time).total_seconds()
+            if elapsed < 10:
+                analytics.reset_stats()
+                st.success("✅ Analytics data telah direset!")
+                st.session_state.confirm_reset = False
+                if "confirm_reset_time" in st.session_state:
+                    del st.session_state.confirm_reset_time
+                st.rerun()
+            else:
+                st.session_state.confirm_reset = False
+                if "confirm_reset_time" in st.session_state:
+                    del st.session_state.confirm_reset_time
+                st.error("⏱️ Konfirmasi timeout. Klik lagi untuk reset.")
         else:
             st.session_state.confirm_reset = True
-            st.warning("⚠️ Klik sekali lagi untuk konfirmasi reset!")
-    if a3.button("� Export Report"):
+            st.session_state.confirm_reset_time = datetime.now()
+            st.warning("⚠️ Klik sekali lagi dalam 10 detik untuk konfirmasi reset!")
+    if a3.button("📁 Export Report"):
         # Export stats to JSON
         import json
         report = {
@@ -258,11 +273,36 @@ elif choice == "🔑 API Management":
 
     col1, col2, col3 = st.columns(3)
     if col1.button("🧪 Test Gemini API"):
-        st.info("Testing Gemini... (placeholder)")
-        st.success("Gemini OK") if gemini else st.error("Masukkan Gemini API key terlebih dahulu")
+        if not gemini:
+            st.error("Masukkan Gemini API key terlebih dahulu")
+        else:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=gemini)
+                model = genai.GenerativeModel('gemini-pro')
+                response = model.generate_content("Test connection. Reply with OK.")
+                st.success("✅ Gemini API Key Valid!")
+                st.caption(f"Response: {response.text[:100]}...")
+            except Exception as e:
+                st.error(f"❌ Gemini API Error: {str(e)}")
+    
     if col2.button("🧪 Test OpenAI API"):
-        st.info("Testing OpenAI... (placeholder)")
-        st.success("OpenAI OK") if openai else st.error("Masukkan OpenAI API key terlebih dahulu")
+        if not openai:
+            st.error("Masukkan OpenAI API key terlebih dahulu")
+        else:
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=openai)
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": "Test connection. Reply with OK."}],
+                    max_tokens=10
+                )
+                st.success("✅ OpenAI API Key Valid!")
+                st.caption(f"Response: {response.choices[0].message.content}")
+            except Exception as e:
+                st.error(f"❌ OpenAI API Error: {str(e)}")
+    
     if col3.button("💾 Simpan API Keys"):
         try:
             write_env({"GOOGLE_API_KEY": gemini, "OPENAI_API_KEY": openai})
@@ -286,14 +326,22 @@ elif choice == "⚡ Rate Limit":
     st.header("Rate Limit Configuration")
     cur_rpm = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "10"))
     cur_rph = int(os.getenv("RATE_LIMIT_REQUESTS_PER_HOUR", "100"))
+    
+    st.info("ℹ️ Requests per jam harus >= (Requests per menit × 60)")
+    
     rpm = st.slider("Requests per menit", 1, 100, value=cur_rpm)
-    rph = st.slider("Requests per jam", 1, 1000, value=cur_rph)
+    rph = st.slider("Requests per jam", 1, 6000, value=cur_rph)
+    
+    # Calculate minimum required rph
+    min_rph = rpm * 60
+    st.caption(f"Minimum requests/jam berdasarkan setting: {min_rph}")
+    
     if st.button("💾 Simpan Konfigurasi"):
-        if rph >= rpm:
+        if rph >= min_rph:
             write_env({"RATE_LIMIT_REQUESTS_PER_MINUTE": str(rpm), "RATE_LIMIT_REQUESTS_PER_HOUR": str(rph)})
-            st.success("Rate limit disimpan")
+            st.success(f"✅ Rate limit disimpan: {rpm} req/min, {rph} req/hour")
         else:
-            st.error("Requests per jam harus >= requests per menit")
+            st.error(f"❌ Requests per jam harus >= {min_rph} (rpm × 60 menit)")
 
 elif choice == "📄 System Prompt":
     st.header("System Prompt Setting")
@@ -432,14 +480,26 @@ elif choice == "📊 Analytics":
     
     with col2:
         if st.button("🗑️ Reset All Analytics", use_container_width=True):
-            if st.session_state.get("confirm_analytics_reset"):
-                analytics.reset_stats()
-                st.success("✅ Analytics data telah direset!")
-                st.session_state.confirm_analytics_reset = False
-                st.rerun()
+            if st.session_state.get("confirm_analytics_reset") and st.session_state.get("confirm_analytics_reset_time"):
+                # Check if confirmation is still valid (within 10 seconds)
+                from datetime import datetime
+                elapsed = (datetime.now() - st.session_state.confirm_analytics_reset_time).total_seconds()
+                if elapsed < 10:
+                    analytics.reset_stats()
+                    st.success("✅ Analytics data telah direset!")
+                    st.session_state.confirm_analytics_reset = False
+                    if "confirm_analytics_reset_time" in st.session_state:
+                        del st.session_state.confirm_analytics_reset_time
+                    st.rerun()
+                else:
+                    st.session_state.confirm_analytics_reset = False
+                    if "confirm_analytics_reset_time" in st.session_state:
+                        del st.session_state.confirm_analytics_reset_time
+                    st.error("⏱️ Konfirmasi timeout. Klik lagi untuk reset.")
             else:
                 st.session_state.confirm_analytics_reset = True
-                st.warning("⚠️ Klik sekali lagi untuk konfirmasi reset!")
+                st.session_state.confirm_analytics_reset_time = datetime.now()
+                st.warning("⚠️ Klik sekali lagi dalam 10 detik untuk konfirmasi reset!")
 
 elif choice == "📚 Upload Materi":
     st.header("Upload Materi Pembelajaran")
@@ -459,19 +519,37 @@ elif choice == "📚 Upload Materi":
     if uploaded_material:
         file_size = len(uploaded_material.getbuffer())
         if file_size > 10 * 1024 * 1024:
-            st.error("File terlalu besar (maksimal 10MB)")
+            st.error("❌ File terlalu besar (maksimal 10MB)")
         else:
             # Check if file already exists
             target_path = materials_dir / uploaded_material.name
+            
             if target_path.exists():
-                st.warning(f"⚠️ File {uploaded_material.name} sudah ada. Akan ditimpa.")
+                # File exists - require confirmation
+                st.warning(f"⚠️ File **{uploaded_material.name}** sudah ada!")
+                
+                col1, col2 = st.columns(2)
+                confirm_key = f"confirm_overwrite_{uploaded_material.name}"
+                
+                if col1.button("✅ Timpa File", key=f"overwrite_{uploaded_material.name}", use_container_width=True):
+                    st.session_state[confirm_key] = True
+                
+                if col2.button("❌ Batal", key=f"cancel_{uploaded_material.name}", use_container_width=True):
+                    st.info("Upload dibatalkan")
+                    if confirm_key in st.session_state:
+                        del st.session_state[confirm_key]
+                    st.stop()
+                
+                # If not confirmed, don't proceed
+                if not st.session_state.get(confirm_key):
+                    st.stop()
 
             # Save the file
             try:
                 with open(target_path, "wb") as f:
                     f.write(uploaded_material.getbuffer())
 
-                st.success(f"✅ File {uploaded_material.name} berhasil diupload!")
+                st.success(f"✅ File **{uploaded_material.name}** berhasil diupload!")
                 st.info(f"📊 Ukuran file: {file_size/1024/1024:.2f} MB")
                 st.info("📚 File tersimpan di folder data/materials/")
 
@@ -483,6 +561,11 @@ elif choice == "📚 Upload Materi":
                     "lokasi": str(target_path),
                     "tipe": uploaded_material.type
                 })
+                
+                # Clear confirmation state
+                confirm_key = f"confirm_overwrite_{uploaded_material.name}"
+                if confirm_key in st.session_state:
+                    del st.session_state[confirm_key]
 
             except Exception as e:
                 st.error(f"❌ Error menyimpan file: {str(e)}")
