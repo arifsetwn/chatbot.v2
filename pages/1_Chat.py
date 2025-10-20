@@ -15,7 +15,6 @@ from utils.code_analyzer import CodeAnalyzer
 from utils.algorithm_simulator import AlgorithmSimulator
 from utils.analytics import get_analytics
 from utils.material_reader import get_material_reader
-from utils.theme_manager import ThemeManager
 from dotenv import load_dotenv
 
 st.set_page_config(
@@ -25,13 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize theme
-ThemeManager.initialize()
-
-# Apply theme CSS
-st.markdown(ThemeManager.get_css(), unsafe_allow_html=True)
-
-# Custom CSS for better UI (additional styling)
+# Custom CSS for better UI
 st.markdown("""
 <style>
     .main-header {
@@ -86,8 +79,8 @@ st.markdown("""
         <strong>⚠️ Penting:</strong>
     </div>
     <div style="line-height: 1.6;">
-        <strong> Chatbot ini memberikan panduan berpikir, bukan jawaban langsung.
-        Untuk tugas atau ujian, diskusikan dengan dosen Anda</strong>.
+        Chatbot ini memberikan <strong>panduan berpikir</strong>, bukan jawaban langsung.
+        Untuk tugas atau ujian, diskusikan dengan dosen Anda.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -389,22 +382,6 @@ if st.sidebar.button("🗑️ Hapus Riwayat Chat", use_container_width=True):
     st.session_state.code_analysis = None
     st.sidebar.success("✅ Riwayat percakapan dihapus!")
     st.rerun()
-
-# Theme Toggle Button - Sidebar Bottom
-st.sidebar.markdown("---")
-st.sidebar.markdown('<div class="theme-toggle-sidebar">', unsafe_allow_html=True)
-current_theme = ThemeManager.get_theme()
-if current_theme == 'light':
-    theme_icon = "🌙"
-    theme_label = "Dark Mode"
-else:
-    theme_icon = "☀️"
-    theme_label = "Light Mode"
-
-if st.sidebar.button(f"{theme_icon} {theme_label}", key="theme_toggle_sidebar", use_container_width=True):
-    ThemeManager.toggle_theme()
-    st.rerun()
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================
 # MAIN AREA
