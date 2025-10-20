@@ -17,6 +17,7 @@ import sys
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.analytics import get_analytics
+from utils.theme_manager import ThemeManager
 
 
 st.set_page_config(
@@ -24,6 +25,12 @@ st.set_page_config(
     page_icon="⚙️",
     layout="wide",
 )
+
+# Initialize theme
+ThemeManager.initialize()
+
+# Apply theme CSS
+st.markdown(ThemeManager.get_css(), unsafe_allow_html=True)
 
 
 def ensure_auth_config(path: Path):
@@ -863,6 +870,22 @@ elif choice == "🎓 Moodle Integration":
         - 🔄 Forum integration (coming soon)
         - 🔄 Quiz integration (coming soon)
         """)
+
+# Theme Toggle Button - Sidebar Bottom
+st.sidebar.markdown("---")
+st.sidebar.markdown('<div class="theme-toggle-sidebar">', unsafe_allow_html=True)
+current_theme = ThemeManager.get_theme()
+if current_theme == 'light':
+    theme_icon = "🌙"
+    theme_label = "Dark Mode"
+else:
+    theme_icon = "☀️"
+    theme_label = "Light Mode"
+
+if st.sidebar.button(f"{theme_icon} {theme_label}", key="theme_toggle_admin_sidebar", use_container_width=True):
+    ThemeManager.toggle_theme()
+    st.rerun()
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 # Logout button - v0.4.2 renders the button automatically
 st.sidebar.markdown("---")
