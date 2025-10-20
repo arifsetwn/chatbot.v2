@@ -43,7 +43,7 @@ class ThemeManager:
             return {
                 'background': '#0e1117',
                 'secondary_bg': '#262730',
-                'card_bg': '#1e1e1e',
+                'card_bg': '#1a1d24',
                 'text': '#fafafa',
                 'text_secondary': '#b0b0b0',
                 'border': '#3a3a3a',
@@ -243,18 +243,75 @@ class ThemeManager:
                 color: #000000 !important;
             }}
             
-            /* Chat messages */
-            .stChatMessage {{
+            /* ============================================== 
+               CHAT MESSAGES - Consistent styling
+               ============================================== */
+            
+            /* Base chat message container */
+            .stChatMessage,
+            [data-testid="stChatMessage"],
+            [data-testid="stChatMessageContainer"] {{
                 background-color: {colors['card_bg']} !important;
-                border: 1px solid {colors['border']};
-                border-radius: 10px;
-                padding: 1rem;
-                margin-bottom: 1rem;
-                box-shadow: 0 2px 4px {colors['shadow']};
+                border: 1px solid {colors['border']} !important;
+                border-radius: 10px !important;
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+                box-shadow: 0 2px 4px {colors['shadow']} !important;
             }}
             
-            .stChatMessage p {{
+            /* All child divs in chat messages should be transparent */
+            .stChatMessage > div,
+            [data-testid="stChatMessage"] > div,
+            [data-testid="stChatMessageContainer"] > div {{
+                background-color: transparent !important;
+            }}
+            
+            /* Nested divs also transparent */
+            .stChatMessage div div,
+            [data-testid="stChatMessage"] div div {{
+                background-color: transparent !important;
+            }}
+            
+            /* Chat message text color */
+            .stChatMessage p,
+            .stChatMessage span,
+            [data-testid="stChatMessage"] p,
+            [data-testid="stChatMessage"] span {{
                 color: {colors['text']} !important;
+            }}
+            
+            /* ============================================== 
+               CHAT AVATARS - Different colors - AGGRESSIVE
+               ============================================== */
+            
+            /* Target by attribute selector - User BLUE */
+            div[class*="avatar"][class*="user"],
+            div[data-testid*="user"] > div,
+            [class*="stChatMessage"] > div > div[style*="background"] {{
+                background-color: #0068c9 !important;
+            }}
+            
+            /* More specific user avatar */
+            .stChatMessage > div:first-child,
+            [data-testid="stChatMessage"] > div:first-child {{
+                background-color: #0068c9 !important;
+                border-radius: 50% !important;
+            }}
+            
+            /* Bot message - RED - try nth-child */
+            .stChatMessage:nth-of-type(even) > div:first-child {{
+                background-color: #ff4b4b !important;
+            }}
+            
+            /* Direct attribute targeting */
+            [data-testid="chatAvatarIcon-user"] {{
+                background: #0068c9 !important;
+                background-color: #0068c9 !important;
+            }}
+            
+            [data-testid="chatAvatarIcon-assistant"] {{
+                background: #ff4b4b !important;
+                background-color: #ff4b4b !important;
             }}
             
             /* Chat input */
@@ -604,6 +661,44 @@ class ThemeManager:
                 color: {colors['text']};
             }}
             
+            /* ============================================== 
+               EXCEPTION: Chat Avatar Icons - Force colors
+               ============================================== */
+            
+            /* User avatar - BLUE background, WHITE icon */
+            [data-testid="chatAvatarIcon-user"] {{
+                background-color: #0068c9 !important;
+                color: white !important;
+            }}
+            
+            [data-testid="chatAvatarIcon-user"],
+            [data-testid="chatAvatarIcon-user"] *,
+            [data-testid="chatAvatarIcon-user"] svg,
+            [data-testid="chatAvatarIcon-user"] svg * {{
+                color: white !important;
+                fill: white !important;
+            }}
+            
+            /* Assistant avatar - RED background, WHITE icon */
+            [data-testid="chatAvatarIcon-assistant"] {{
+                background-color: #ff4b4b !important;
+                color: white !important;
+            }}
+            
+            [data-testid="chatAvatarIcon-assistant"],
+            [data-testid="chatAvatarIcon-assistant"] *,
+            [data-testid="chatAvatarIcon-assistant"] svg,
+            [data-testid="chatAvatarIcon-assistant"] svg * {{
+                color: white !important;
+                fill: white !important;
+            }}
+            
+            /* Preserve other SVG and emoji colors */
+            svg:not([data-testid="chatAvatarIcon-user"] svg):not([data-testid="chatAvatarIcon-assistant"] svg),
+            img {{
+                filter: none !important;
+            }}
+            
             /* Specifically target sidebar menu items */
             section[data-testid="stSidebar"] nav {{
                 background-color: {colors['secondary_bg']} !important;
@@ -660,6 +755,62 @@ class ThemeManager:
                 color: white !important;
             }}
         </style>
+        
+        <script>
+            // Simple and effective avatar color fix
+            function fixAvatarColors() {{
+                // Find all chat message containers
+                const messages = document.querySelectorAll('[data-testid="stChatMessage"]');
+                
+                messages.forEach(msg => {{
+                    // Check the text content to identify role
+                    const text = msg.textContent;
+                    
+                    // Find the avatar div (first child, rounded)
+                    const avatarContainer = msg.querySelector('div[style*="border-radius"]');
+                    
+                    if (avatarContainer) {{
+                        // Check if it contains user emoji or assistant emoji
+                        if (text.includes('👤')) {{
+                            // User - BLUE
+                            avatarContainer.style.setProperty('background-color', '#0068c9', 'important');
+                            avatarContainer.style.setProperty('background', '#0068c9', 'important');
+                        }} else if (text.includes('🤖')) {{
+                            // Assistant - RED
+                            avatarContainer.style.setProperty('background-color', '#ff4b4b', 'important');
+                            avatarContainer.style.setProperty('background', '#ff4b4b', 'important');
+                        }}
+                    }}
+                    
+                    // Alternative: check all divs with background in the message
+                    const bgDivs = msg.querySelectorAll('div[style*="background"]');
+                    bgDivs.forEach(div => {{
+                        if (div.textContent.includes('👤') || div.innerHTML.includes('👤')) {{
+                            div.style.setProperty('background-color', '#0068c9', 'important');
+                        }} else if (div.textContent.includes('🤖') || div.innerHTML.includes('🤖')) {{
+                            div.style.setProperty('background-color', '#ff4b4b', 'important');
+                        }}
+                    }});
+                }});
+            }}
+            
+            // Run immediately
+            fixAvatarColors();
+            
+            // Run after short delay to catch late renders
+            setTimeout(fixAvatarColors, 100);
+            setTimeout(fixAvatarColors, 500);
+            setTimeout(fixAvatarColors, 1000);
+            
+            // Run on interval to catch new messages
+            setInterval(fixAvatarColors, 500);
+            
+            // Run on DOM changes
+            const observer = new MutationObserver(() => {{
+                setTimeout(fixAvatarColors, 50);
+            }});
+            observer.observe(document.body, {{ childList: true, subtree: true }});
+        </script>
         """
     
     @staticmethod
